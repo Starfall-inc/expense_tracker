@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "8793:3000" # Map to a random available host port
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DATABASE_PATH=/app/db/expense_tracker.db
+      - JWT_SECRET=${JWT_SECRET:-your_fallback_secret_here}
+    volumes:
+      - ./db:/app/db # Persist SQLite database
+    restart: always
