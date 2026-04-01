@@ -1,0 +1,219 @@
+<%- include('partials/header') %>
+
+<% 
+    const formatINR = (val) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(val);
+%>
+
+<div x-data="dashboard" class="space-y-4 md:space-y-6 animate-[fadeIn_0.4s_ease-out] pb-20 md:pb-10">
+    
+    <div class="flex items-center justify-between px-1">
+        <h2 class="text-xl md:text-2xl font-black text-slate-800 tracking-tighter flex items-center gap-2">
+            <i class="fas fa-chart-line text-rose-600 text-lg"></i>Overview
+        </h2>
+        <button @click="openModal = true" 
+            class="group flex items-center justify-center gap-2 py-2 px-5 bg-rose-600 hover:bg-rose-700 text-white font-black uppercase tracking-widest text-[9px] rounded-lg shadow-lg shadow-rose-100 transition-all hover:-translate-y-0.5 active:scale-95">
+            <i class="fas fa-plus"></i>
+            Add
+        </button>
+    </div>
+
+    <!-- Summary Statistics -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
+        <!-- Balance -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-4 md:p-5 hover:shadow-md transition-all">
+            <p class="text-slate-400 text-[9px] font-black uppercase tracking-[0.2em] mb-1">Balance</p>
+            <h3 class="text-xl md:text-2xl font-black <%= totalBalance >= 0 ? 'text-slate-900' : 'text-rose-600' %>">
+                <%= formatINR(totalBalance) %>
+            </h3>
+        </div>
+        <!-- Income -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-4 md:p-5 hover:shadow-md transition-all">
+            <p class="text-slate-400 text-[9px] font-black uppercase tracking-[0.2em] mb-1">Income</p>
+            <h3 class="text-xl md:text-2xl font-black text-emerald-600 font-mono"><%= formatINR(totalIncome) %></h3>
+        </div>
+        <!-- Expenses -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-4 md:p-5 hover:shadow-md transition-all">
+            <p class="text-slate-400 text-[9px] font-black uppercase tracking-[0.2em] mb-1">Expenses</p>
+            <h3 class="text-xl md:text-2xl font-black text-rose-600 font-mono"><%= formatINR(totalExpenses) %></h3>
+        </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-5 md:p-6">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-6">
+            <h4 class="text-base font-black text-slate-800 flex items-center gap-2 tracking-tight">
+                <i class="fas fa-chart-pie text-rose-500"></i>
+                Analytics
+            </h4>
+            <!-- Chart Type Switcher -->
+            <div class="flex p-0.5 bg-slate-50 border border-slate-100 rounded-lg w-full md:w-fit">
+                <button @click="setChartType('doughnut')" 
+                    :class="chartType === 'doughnut' ? 'bg-white shadow-sm text-rose-600 border-slate-100' : 'text-slate-400 hover:text-slate-500'"
+                    class="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 text-[8px] font-black uppercase tracking-widest rounded-md transition-all border border-transparent">
+                    Doughnut
+                </button>
+                <button @click="setChartType('bar')" 
+                    :class="chartType === 'bar' ? 'bg-white shadow-sm text-rose-600 border-slate-100' : 'text-slate-400 hover:text-slate-500'"
+                    class="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 text-[8px] font-black uppercase tracking-widest rounded-md transition-all ml-0.5 border border-transparent">
+                    Bar
+                </button>
+            </div>
+        </div>
+        <div class="h-[250px] md:h-[300px]">
+            <canvas id="expenseChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Modal Implementation -->
+    <template x-teleport="body">
+        <div x-show="openModal" class="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4 bg-slate-900/30 backdrop-blur-[2px]" x-transition>
+            <div @click.away="openModal = false" 
+                class="w-full max-w-md bg-white rounded-t-xl md:rounded-xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom md:zoom-in duration-200">
+                
+                <div class="p-6 md:p-8 pb-5">
+                    <div class="flex justify-between items-center mb-6">
+                        <h5 class="text-lg font-black text-slate-800 tracking-tight">New Transaction</h5>
+                        <button @click="openModal = false" class="text-slate-300 hover:text-slate-400 transition-colors p-1">
+                            <i class="fas fa-times text-sm"></i>
+                        </button>
+                    </div>
+
+                    <div class="flex p-0.5 bg-slate-50 border border-slate-100 rounded-lg mb-6">
+                        <button type="button" @click="transactionType = 'expense'"
+                            :class="transactionType === 'expense' ? 'bg-rose-600 text-white shadow-sm' : 'text-slate-400'"
+                            class="flex-1 py-2 text-[8px] font-black uppercase tracking-widest rounded-md transition-all transform">
+                            Expense
+                        </button>
+                        <button type="button" @click="transactionType = 'income'"
+                            :class="transactionType === 'income' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-400'"
+                            class="flex-1 py-2 text-[8px] font-black uppercase tracking-widest rounded-md transition-all transform ml-0.5">
+                            Income
+                        </button>
+                    </div>
+
+                    <form action="/add" method="POST" class="space-y-4">
+                        <input type="hidden" name="type" :value="transactionType">
+                        
+                        <div class="space-y-1.5">
+                            <label class="block text-[8px] font-black uppercase tracking-widest text-slate-400 ml-1">Amount (₹)</label>
+                            <input type="number" step="0.01" name="amount" required 
+                                class="w-full px-4 py-3 rounded-lg bg-slate-50 border-2 border-transparent focus:border-rose-500/5 focus:bg-white transition-all outline-none text-xl font-black placeholder:text-slate-200"
+                                placeholder="0.00">
+                        </div>
+
+                        <div class="space-y-1.5">
+                            <label class="block text-[8px] font-black uppercase tracking-widest text-slate-400 ml-1">Description</label>
+                            <input type="text" name="description" required 
+                                class="w-full px-4 py-3 rounded-lg bg-slate-50 border-2 border-transparent focus:border-rose-500/5 focus:bg-white transition-all outline-none font-bold text-xs"
+                                placeholder="e.g. Coffee">
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="space-y-1.5">
+                                <label class="block text-[8px] font-black uppercase tracking-widest text-slate-400 ml-1">Date</label>
+                                <input type="date" name="date" required 
+                                    class="w-full px-3 py-2.5 rounded-lg bg-slate-50 border-2 border-transparent focus:border-rose-500/5 focus:bg-white transition-all outline-none font-bold text-[11px]"
+                                    value="<%= new Date().toISOString().split('T')[0] %>">
+                            </div>
+                            <div class="space-y-1.5">
+                                <label class="block text-[8px] font-black uppercase tracking-widest text-slate-400 ml-1">Category</label>
+                                <select name="category_id" required 
+                                    class="w-full px-3 py-2.5 rounded-lg bg-slate-50 border-2 border-transparent focus:border-rose-500/5 focus:bg-white transition-all outline-none font-bold text-[11px] appearance-none">
+                                    <% categories.forEach(category => { %>
+                                        <option value="<%= category.id %>"><%= category.name %></option>
+                                    <% }) %>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="pt-2 pb-4 md:pb-0">
+                            <button type="submit" 
+                                :class="transactionType === 'income' ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-50' : 'bg-rose-600 hover:bg-rose-700 shadow-rose-50'"
+                                class="w-full py-3.5 text-white font-black uppercase tracking-widest text-[9px] rounded-lg shadow-lg transition-all transform hover:-translate-y-0.5 active:scale-95">
+                                Save Transaction
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </template>
+</div>
+
+<script>
+    document.addEventListener('alpine:init', () => {
+        Alpine.data('dashboard', () => ({
+            openModal: false,
+            transactionType: 'expense',
+            chartType: 'doughnut',
+            chartInstance: null,
+            chartData: <%- JSON.stringify(chartData) %>,
+
+            init() {
+                this.initChart();
+            },
+
+            setChartType(type) {
+                this.chartType = type;
+                this.initChart();
+            },
+
+            initChart() {
+                if (this.chartInstance) {
+                    this.chartInstance.destroy();
+                }
+
+                const ctx = document.getElementById('expenseChart').getContext('2d');
+                const labels = this.chartData.map(d => `${d.name} (${d.type})`);
+                const data = this.chartData.map(d => d.total);
+                const colors = this.chartData.map(d => d.type === 'income' ? '#10b981' : '#e11d48');
+
+                this.chartInstance = new Chart(ctx, {
+                    type: this.chartType,
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Amount (₹)',
+                            data: data,
+                            backgroundColor: colors,
+                            borderWidth: 0,
+                            borderRadius: this.chartType === 'bar' ? 6 : 0,
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: this.chartType === 'doughnut',
+                                position: 'bottom',
+                                labels: {
+                                    usePointStyle: true,
+                                    padding: 15,
+                                    font: { family: 'Inter', size: 9, weight: '600' }
+                                }
+                            }
+                        },
+                        scales: this.chartType === 'bar' ? {
+                            y: { 
+                                grid: { color: '#f8fafc' },
+                                ticks: { font: { size: 8, weight: '600' } }
+                            },
+                            x: { 
+                                grid: { display: false },
+                                ticks: { font: { size: 8, weight: '600' } }
+                            }
+                        } : {}
+                    }
+                });
+            }
+        }));
+    });
+</script>
+
+<style>
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+    [x-cloak] { display: none !important; }
+</style>
+
+<%- include('partials/footer') %>

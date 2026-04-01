@@ -1,0 +1,183 @@
+<%- include('partials/header') %>
+
+<% 
+    const formatINR = (val) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(val);
+%>
+
+<div x-data="historyTrends" class="space-y-4 md:space-y-6 animate-[fadeIn_0.4s_ease-out] pb-20 md:pb-10">
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 px-1">
+        <h2 class="text-xl md:text-2xl font-black text-slate-800 tracking-tighter flex items-center gap-2">
+            <i class="fas fa-history text-rose-600 text-lg"></i>History
+        </h2>
+        <div class="flex items-center gap-2">
+            <span class="text-[8px] font-black text-rose-600 bg-rose-50 px-2 py-1 rounded-md border border-rose-100 uppercase tracking-widest"><%= expenses.length %> Records</span>
+        </div>
+    </div>
+
+    <!-- Trend Chart -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-4 md:p-6">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-5">
+            <h4 class="text-sm font-black text-slate-800 flex items-center gap-2 tracking-tight">
+                <i class="fas fa-chart-line text-rose-500"></i>
+                Trends
+            </h4>
+            <div class="flex p-0.5 bg-slate-50 border border-slate-100 rounded-lg w-full md:w-fit">
+                <button @click="setTrendMode('daily')" 
+                    :class="trendMode === 'daily' ? 'bg-white shadow-sm text-rose-600 border-slate-100' : 'text-slate-400 hover:text-slate-500'"
+                    class="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 text-[8px] font-black uppercase tracking-widest rounded-md transition-all border border-transparent">
+                    Daily
+                </button>
+                <button @click="setTrendMode('monthly')" 
+                    :class="trendMode === 'monthly' ? 'bg-white shadow-sm text-rose-600 border-slate-100' : 'text-slate-400 hover:text-slate-500'"
+                    class="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 text-[8px] font-black uppercase tracking-widest rounded-md transition-all ml-0.5 border border-transparent">
+                    Monthly
+                </button>
+            </div>
+        </div>
+        <div class="h-[200px] md:h-[250px]">
+            <canvas id="trendChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Transaction List -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+        <div class="px-5 py-3 border-b border-slate-50 flex items-center gap-2">
+            <i class="fas fa-list text-slate-400 text-[10px]"></i>
+            <h4 class="text-[9px] font-black uppercase text-slate-400 tracking-widest">Transactions</h4>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left">
+                <thead>
+                    <tr class="bg-slate-50/20">
+                        <th class="px-5 md:px-6 py-3 text-[8px] font-black text-slate-400 uppercase tracking-widest">Date</th>
+                        <th class="px-5 md:px-6 py-3 text-[8px] font-black text-slate-400 uppercase tracking-widest">Details</th>
+                        <th class="px-5 md:px-6 py-3 text-[8px] font-black text-slate-400 uppercase tracking-widest">Type</th>
+                        <th class="px-5 md:px-6 py-3 text-[8px] font-black text-slate-400 uppercase tracking-widest text-right">Amount</th>
+                        <th class="px-5 md:px-6 py-3 text-[8px] font-black text-slate-400 uppercase tracking-widest text-right"></th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-50 font-medium">
+                    <% expenses.forEach((expense) => { %>
+                        <tr class="hover:bg-slate-50/30 transition-colors group">
+                            <td class="px-5 md:px-6 py-3.5 text-[10px] text-slate-500 whitespace-nowrap">
+                                <%= new Date(expense.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) %>
+                            </td>
+                            <td class="px-5 md:px-6 py-3.5">
+                                <span class="text-slate-800 font-bold block text-xs tracking-tight"><%= expense.description %></span>
+                                <span class="text-[9px] text-slate-400"><%= expense.category_name %></span>
+                            </td>
+                            <td class="px-5 md:px-6 py-3.5">
+                                <span class="px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest <%= expense.type === 'income' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600' %>">
+                                    <%= expense.type %>
+                                </span>
+                            </td>
+                            <td class="px-5 md:px-6 py-3.5 text-[11px] font-black text-right whitespace-nowrap <%= expense.type === 'income' ? 'text-emerald-600' : 'text-rose-600' %>">
+                                <%= formatINR(expense.amount) %>
+                            </td>
+                            <td class="px-5 md:px-6 py-3.5 text-right opacity-0 group-hover:opacity-100 transition-opacity">
+                                <form action="/delete/<%= expense.id %>" method="POST">
+                                    <button type="submit" class="text-slate-300 hover:text-rose-600 transition-all">
+                                        <i class="fas fa-trash-can text-[10px]"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    <% }) %>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('alpine:init', () => {
+        Alpine.data('historyTrends', () => ({
+            trendMode: 'daily',
+            chartInstance: null,
+            dailyTrends: <%- JSON.stringify(dailyTrends) %>,
+            monthlyTrends: <%- JSON.stringify(monthlyTrends) %>,
+
+            init() {
+                this.initChart();
+            },
+
+            setTrendMode(mode) {
+                this.trendMode = mode;
+                this.initChart();
+            },
+
+            initChart() {
+                if (this.chartInstance) {
+                    this.chartInstance.destroy();
+                }
+
+                const ctx = document.getElementById('trendChart').getContext('2d');
+                const dataSet = this.trendMode === 'daily' ? this.dailyTrends : this.monthlyTrends;
+                const labels = dataSet.map(d => this.trendMode === 'daily' ? d.day : d.month);
+                const incomeData = dataSet.map(d => d.income);
+                const expenseData = dataSet.map(d => d.expense);
+
+                this.chartInstance = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [
+                            {
+                                label: 'Income',
+                                data: incomeData,
+                                borderColor: '#10b981',
+                                backgroundColor: 'transparent',
+                                tension: 0.3,
+                                pointRadius: 0,
+                                hoverPointRadius: 4,
+                                borderWidth: 2
+                            },
+                            {
+                                label: 'Expense',
+                                data: expenseData,
+                                borderColor: '#e11d48',
+                                backgroundColor: 'transparent',
+                                tension: 0.3,
+                                pointRadius: 0,
+                                hoverPointRadius: 4,
+                                borderWidth: 2
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: { intersect: false, mode: 'index' },
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                backgroundColor: '#1e293b',
+                                padding: 8,
+                                titleFont: { size: 10 },
+                                bodyFont: { size: 10 }
+                            }
+                        },
+                        scales: {
+                            y: { 
+                                grid: { color: '#f8fafc' },
+                                ticks: { font: { size: 8, weight: '600' } }
+                            },
+                            x: { 
+                                grid: { display: false },
+                                ticks: { font: { size: 8, weight: '600' } }
+                            }
+                        }
+                    }
+                });
+            }
+        }));
+    });
+</script>
+
+<style>
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+
+<%- include('partials/footer') %>
